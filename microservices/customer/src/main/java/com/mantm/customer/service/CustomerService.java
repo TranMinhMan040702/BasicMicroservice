@@ -1,5 +1,6 @@
 package com.mantm.customer.service;
 
+import com.mantm.amqp.RabbitMQMessageProducer;
 import com.mantm.clients.fraud.FraudCheckResponse;
 import com.mantm.clients.fraud.FraudClient;
 import com.mantm.clients.notification.NotificationClient;
@@ -17,7 +18,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final FraudClient fraudClient;
-    private final NotificationClient notificationClient;
+    private final RabbitMQMessageProducer producer;
 
     public void registerCustomer(CustomerRegistrationRequest request) {
         Customer customer = Customer.builder()
@@ -33,14 +34,17 @@ public class CustomerService {
             throw new IllegalStateException("fraudster");
         }
 
-        // todo: make it async .i.e add to queue
-        notificationClient.sendNotification(
-                new NotificationRequest(
-                        customer.getId(),
-                        customer.getEmail(),
-                        String.format("Hi %s, welcome to Website of ManTran ...", customer.getFirstName())
-                )
+        NotificationRequest notificationRequest = new NotificationRequest(
+                customer.getId(),
+                customer.getEmail(),
+                String.format("Hi %s, welcome to Website of ManTran ...", customer.getFirstName())
         );
+        producer.publish(
+                notificationRequest,
+                "internal.exchange",
+                "internal.notification.routing-key"
+        );
+
     }
 
 
